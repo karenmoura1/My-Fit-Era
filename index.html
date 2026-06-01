@@ -4249,11 +4249,12 @@ function renderShoppingList() {
   });
 
   let html = '';
-  sortedCats.forEach(cat => {
+  sortedCats.forEach((cat, catIndex) => {
     const catItems = groups[cat];
     const doneCount = catItems.filter(i => i.checked).length;
+    const catId = 'cat' + catIndex;
     html += `
-      <div class="shop-category" id="shopCat-${btoa(cat).replace(/=/g,'')}">
+      <div class="shop-category" id="shopCat-${catId}">
         <div class="shop-category-header" onclick="toggleShopCategory(this)">
           <div class="shop-category-title">
             ${cat}
