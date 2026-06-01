@@ -2070,9 +2070,10 @@ function switchPanel(panelId) {
   document.getElementById(panelId).classList.add('active');
   window.scrollTo({top: 0, behavior: 'smooth'});
   if (panelId === 'shopping') {
-    const data = loadShoppingList();
-    if (!data.items.length) regenerateShoppingList();
-    else renderShoppingList();
+    // Sempre regenera para garantir formato atualizado
+    regenerateShoppingList();
+    // Aplicar botão de período ativo
+    setShopPeriod(shopPeriodDays);
   }
   if (panelId === 'dashboard') renderDashboard();
   if (panelId === 'history') renderHistory();
@@ -4171,7 +4172,6 @@ let shopPeriodDays = 7; // padrão: 1 semana
 
 function setShopPeriod(days) {
   shopPeriodDays = days;
-  // Atualizar botões
   [1,7,15,30].forEach(d => {
     const btn = document.getElementById('shopPeriod' + d);
     if (btn) btn.className = d === days ? '' : 'ghost';
@@ -4258,9 +4258,11 @@ function generateShoppingItems() {
 }
 
 function getDisplayAmount(item, days) {
-  if (!item.parsedAmount) return item.baseAmount || '';
-  const total = item.parsedAmount.value * days;
-  return formatAmount(total, item.parsedAmount.unit);
+  // Re-parse on the fly if parsedAmount missing (old saved data)
+  const parsed = item.parsedAmount || parseAmount(item.baseAmount || item.amount || '');
+  if (!parsed) return item.baseAmount || item.amount || '';
+  const total = parsed.value * days;
+  return formatAmount(total, parsed.unit);
 }
 
 function regenerateShoppingList() {
