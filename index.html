@@ -1240,12 +1240,23 @@
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
       <div>
         <h2 style="margin-bottom:2px;">🛒 Lista de compras</h2>
-        <p class="muted" style="margin:0;">Gerada automaticamente pelo seu plano alimentar.</p>
+        <p class="muted" style="margin:0;">Quantidades calculadas pelo seu plano alimentar.</p>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="ghost" onclick="regenerateShoppingList()" style="min-width:120px;">↻ Atualizar</button>
         <button class="ghost" onclick="clearCheckedItems()" style="min-width:130px;">🗑 Remover marcados</button>
         <button class="ghost" onclick="copyShoppingList()" style="min-width:110px;">📋 Copiar</button>
+      </div>
+    </div>
+
+    <!-- Período -->
+    <div style="margin-top:14px;">
+      <label style="margin-bottom:8px;">Calcular quantidade para</label>
+      <div style="display:flex; gap:8px;">
+        <button id="shopPeriod1" class="ghost" onclick="setShopPeriod(1)" style="flex:1; font-size:0.8rem;">📅 1 dia</button>
+        <button id="shopPeriod7" onclick="setShopPeriod(7)" style="flex:1; font-size:0.8rem;">📅 1 semana</button>
+        <button id="shopPeriod15" class="ghost" onclick="setShopPeriod(15)" style="flex:1; font-size:0.8rem;">📅 15 dias</button>
+        <button id="shopPeriod30" class="ghost" onclick="setShopPeriod(30)" style="flex:1; font-size:0.8rem;">📅 1 mês</button>
       </div>
     </div>
 
@@ -4156,44 +4167,109 @@ function saveShoppingList(data) {
   localStorage.setItem(SHOP_KEY, JSON.stringify(data));
 }
 
+let shopPeriodDays = 7; // padrão: 1 semana
+
+function setShopPeriod(days) {
+  shopPeriodDays = days;
+  // Atualizar botões
+  [1,7,15,30].forEach(d => {
+    const btn = document.getElementById('shopPeriod' + d);
+    if (btn) btn.className = d === days ? '' : 'ghost';
+  });
+  renderShoppingList();
+}
+
+// Converte string de quantidade em {value, unit}
+// Ex: "150g" → {value:150, unit:'g'}, "2 unidades" → {value:2, unit:'unidades'}
+function parseAmount(str) {
+  if (!str) return null;
+  const clean = str.trim().toLowerCase();
+  const match = clean.match(/^([\d.,]+)\s*([a-záéíóúçã%]*)/);
+  if (!match) return null;
+  const value = parseFloat(match[1].replace(',', '.'));
+  const unit = match[2] || '';
+  if (isNaN(value)) return null;
+  return { value, unit };
+}
+
+function formatAmount(value, unit) {
+  // Arredondar de forma legível
+  let v = value;
+  if (unit === 'kg' || unit === 'l') {
+    v = Math.round(v * 100) / 100;
+  } else if (unit === 'g' || unit === 'ml') {
+    // Se passar de 1000g, converter para kg
+    if (v >= 1000 && unit === 'g') return formatAmount(v / 1000, 'kg');
+    if (v >= 1000 && unit === 'ml') return formatAmount(v / 1000, 'l');
+    v = Math.round(v);
+  } else {
+    v = Math.round(v * 10) / 10;
+  }
+  return v + (unit ? ' ' + unit : '');
+}
+
 function generateShoppingItems() {
-  // Extrai todos os alimentos do plano alimentar
-  const items = [];
-  const seen = new Set();
+  // Agrupa por nome do alimento (sem duplicação)
+  // Para cada alimento: soma quantidades, lista refeições onde aparece
+  const itemMap = {}; // key = nome normalizado
 
   (db.dietPlan || []).forEach(meal => {
+    // Pega todos os alimentos de todas as opções da refeição, sem duplicar dentro da mesma refeição
+    const foodsInMeal = {};
     (meal.options || []).forEach(opt => {
       (opt.foods || []).forEach(food => {
         const key = food.name.toLowerCase().trim();
-        if (!seen.has(key)) {
-          seen.add(key);
-          items.push({
-            id: uid(),
-            name: food.name,
-            amount: food.amount || '',
-            meal: meal.name,
-            mealEmoji: meal.emoji || '🍽️',
-            category: getCategoryForItem(food.name),
-            checked: false,
-            manual: false
-          });
+        // Dentro da mesma refeição: pega a quantidade máxima entre as opções
+        if (!foodsInMeal[key] || (parseAmount(food.amount)?.value || 0) > (parseAmount(foodsInMeal[key].amount)?.value || 0)) {
+          foodsInMeal[key] = { name: food.name, amount: food.amount, meal: meal.name, emoji: meal.emoji || '🍽️' };
         }
       });
     });
+
+    // Adicionar ao mapa global
+    Object.entries(foodsInMeal).forEach(([key, food]) => {
+      if (!itemMap[key]) {
+        itemMap[key] = {
+          id: uid(),
+          name: food.name,
+          baseAmount: food.amount || '',
+          parsedAmount: parseAmount(food.amount),
+          meals: [{ name: food.meal, emoji: food.emoji }],
+          category: getCategoryForItem(food.name),
+          checked: false,
+          manual: false,
+          timesPerDay: 1
+        };
+      } else {
+        // Alimento aparece em mais de uma refeição — incrementar frequência e somar quantidade
+        itemMap[key].timesPerDay += 1;
+        itemMap[key].meals.push({ name: food.meal, emoji: food.emoji });
+        // Acumular quantidade se mesma unidade
+        const existing = itemMap[key].parsedAmount;
+        const incoming = parseAmount(food.amount);
+        if (existing && incoming && existing.unit === incoming.unit) {
+          itemMap[key].parsedAmount = { value: existing.value + incoming.value, unit: existing.unit };
+        }
+      }
+    });
   });
 
-  return items;
+  return Object.values(itemMap);
+}
+
+function getDisplayAmount(item, days) {
+  if (!item.parsedAmount) return item.baseAmount || '';
+  const total = item.parsedAmount.value * days;
+  return formatAmount(total, item.parsedAmount.unit);
 }
 
 function regenerateShoppingList() {
   const current = loadShoppingList();
   const newItems = generateShoppingItems();
 
-  // Preservar itens manuais e estados de checked dos itens existentes
   const manualItems = current.items.filter(i => i.manual);
   const checkedIds = new Set(current.items.filter(i => i.checked && !i.manual).map(i => i.name.toLowerCase()));
 
-  // Mesclar: novos itens do plano + manuais
   newItems.forEach(i => {
     if (checkedIds.has(i.name.toLowerCase())) i.checked = true;
   });
@@ -4202,7 +4278,7 @@ function regenerateShoppingList() {
   const data = { items: merged, filters: current.filters || [], lastGenerated: new Date().toISOString() };
   saveShoppingList(data);
   renderShoppingList();
-  showToast('Lista atualizada com os alimentos do plano alimentar ✓');
+  showToast('Lista atualizada ✓');
 }
 
 function renderShoppingList() {
@@ -4217,7 +4293,7 @@ function renderShoppingList() {
   // Filtrar itens por refeição selecionada
   let items = data.items;
   if (data.filters && data.filters.length > 0) {
-    items = items.filter(i => i.manual || data.filters.includes(i.meal));
+    items = items.filter(i => i.manual || (i.meals && i.meals.some(m => data.filters.includes(m.name))));
   }
 
   if (!items.length) {
@@ -4264,6 +4340,14 @@ function renderShoppingList() {
         </div>
         <div class="shop-items">`;
     catItems.forEach(item => {
+      const qtyDisplay = item.manual
+        ? (item.amount || '')
+        : getDisplayAmount(item, shopPeriodDays);
+      const mealTags = item.manual
+        ? `<div class="shop-item-meta">✏️ Adicionado manualmente</div>`
+        : item.meals
+          ? `<div class="shop-item-meta">${item.meals.map(m => m.emoji + ' ' + m.name).join(' · ')}</div>`
+          : '';
       html += `
           <div class="shop-item ${item.checked ? 'checked' : ''}" id="shopItem-${item.id}">
             <div class="shop-check ${item.checked ? 'done' : ''}" onclick="toggleShopItem('${item.id}')">
@@ -4271,9 +4355,9 @@ function renderShoppingList() {
             </div>
             <div class="shop-item-info">
               <div class="shop-item-name">${item.name}</div>
-              ${item.meal ? `<div class="shop-item-meta">${item.mealEmoji} ${item.meal}${item.manual ? ' · Adicionado manualmente' : ''}</div>` : ''}
+              ${mealTags}
             </div>
-            ${item.amount ? `<div class="shop-item-qty">${item.amount}</div>` : ''}
+            ${qtyDisplay ? `<div class="shop-item-qty">${qtyDisplay}</div>` : ''}
             <button class="shop-item-del" onclick="deleteShopItem('${item.id}')" title="Remover">✕</button>
           </div>`;
     });
@@ -4300,11 +4384,16 @@ function renderShoppingList() {
 function renderShoppingFilters(data) {
   const el = document.getElementById('shoppingMealFilter');
   if (!el) return;
-  const meals = [...new Set((data.items || []).filter(i => !i.manual && i.meal).map(i => i.meal))];
-  el.innerHTML = meals.map(m => {
-    const active = !data.filters || data.filters.length === 0 || data.filters.includes(m);
-    return `<span class="chip ${active ? 'active' : ''}" onclick="toggleShopFilter('${m}')">${m}</span>`;
-  }).join('') + `<span class="chip ${!data.filters || data.filters.length === 0 ? 'active' : ''}" onclick="clearShopFilters()">Todas</span>`;
+  const meals = [...new Set(
+    (data.items || [])
+      .filter(i => !i.manual && i.meals)
+      .flatMap(i => i.meals.map(m => m.name))
+  )];
+  el.innerHTML = `<span class="chip ${!data.filters || data.filters.length === 0 ? 'active' : ''}" onclick="clearShopFilters()">Todas</span>` +
+    meals.map(m => {
+      const active = data.filters && data.filters.length > 0 && data.filters.includes(m);
+      return `<span class="chip ${active ? 'active' : ''}" onclick="toggleShopFilter('${m}')">${m}</span>`;
+    }).join('');
 }
 
 function toggleShopFilter(meal) {
@@ -4377,7 +4466,8 @@ function copyShoppingList() {
   const unchecked = data.items.filter(i => !i.checked);
   if (!unchecked.length) { showToast('Nenhum item pendente para copiar'); return; }
 
-  // Agrupar por categoria para copiar
+  const periodLabel = shopPeriodDays === 1 ? '1 dia' : shopPeriodDays === 7 ? '1 semana' : shopPeriodDays === 15 ? '15 dias' : '1 mês';
+
   const groups = {};
   unchecked.forEach(i => {
     const cat = i.category || '📦 Outros';
@@ -4385,15 +4475,18 @@ function copyShoppingList() {
     groups[cat].push(i);
   });
 
-  let text = '🛒 Lista de compras — My Fit Era\n\n';
+  let text = `🛒 Lista de compras — My Fit Era (${periodLabel})\n\n`;
   Object.entries(groups).forEach(([cat, items]) => {
     text += `${cat}\n`;
-    items.forEach(i => { text += `  • ${i.name}${i.amount ? ' — ' + i.amount : ''}\n`; });
+    items.forEach(i => {
+      const qty = i.manual ? (i.amount || '') : getDisplayAmount(i, shopPeriodDays);
+      text += `  • ${i.name}${qty ? ' — ' + qty : ''}\n`;
+    });
     text += '\n';
   });
 
   navigator.clipboard.writeText(text).then(() => {
-    showToast('Lista copiada para a área de transferência ✓');
+    showToast('Lista copiada ✓');
   }).catch(() => {
     showToast('Não foi possível copiar automaticamente');
   });
