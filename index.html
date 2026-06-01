@@ -648,7 +648,70 @@
     font-weight: 500; cursor: pointer; font-size: 0.875rem;
   }
 
-  @media (max-width: 768px) {
+  /* ===== LISTA DE COMPRAS ===== */
+  .shop-category {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+  }
+  .shop-category-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; cursor: pointer; user-select: none;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .shop-category-header:hover { background: var(--accent-soft); }
+  .shop-category-title {
+    font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;
+  }
+  .shop-category-count {
+    font-size: 0.75rem; background: var(--accent-soft); color: var(--accent);
+    padding: 2px 8px; border-radius: 12px; font-weight: 600;
+  }
+  .shop-category-toggle { color: var(--text-muted); font-size: 0.8rem; transition: transform 0.2s; }
+  .shop-category.collapsed .shop-category-toggle { transform: rotate(-90deg); }
+  .shop-category.collapsed .shop-items { display: none; }
+  .shop-items { padding: 6px 0; }
+  .shop-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+  .shop-item:last-child { border-bottom: none; }
+  .shop-item:hover { background: var(--bg); }
+  .shop-item.checked { opacity: 0.45; }
+  .shop-item.checked .shop-item-name { text-decoration: line-through; }
+  .shop-check {
+    width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border);
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; background: var(--surface); transition: all 0.15s;
+  }
+  .shop-check.done { background: var(--success); border-color: var(--success); color: white; }
+  .shop-item-info { flex: 1; min-width: 0; }
+  .shop-item-name { font-weight: 500; font-size: 0.9rem; color: var(--text); }
+  .shop-item-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+  .shop-item-qty {
+    font-size: 0.8rem; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .shop-item-del {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    padding: 4px; min-height: unset; font-size: 0.8rem; border-radius: 4px;
+    opacity: 0.5; flex-shrink: 0;
+  }
+  .shop-item-del:hover { background: var(--danger-soft); color: var(--danger); opacity: 1; }
+  .shop-empty {
+    text-align: center; padding: 40px 20px; color: var(--text-muted);
+  }
+  .shop-empty .ico-big { font-size: 2.5rem; margin-bottom: 10px; }
+  .shop-progress {
+    height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    margin-top: 10px;
+  }
+  .shop-progress-bar {
+    height: 100%; background: var(--success); border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+</style>
     .tabs { display: none; }
     .bottom-nav { display: block; }
     .grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -892,6 +955,7 @@
   <button class="tab" data-panel="dashboard"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V5M10 19V9M16 19v-6M22 19V3"/></svg></span>Dashboard</button>
   <button class="tab" data-panel="insights"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>Insights<span class="alert-badge" id="alertBadgeTop" style="display:none;"></span></button>
   <button class="tab" data-panel="history"><span class="ico"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Histórico</button>
+  <button class="tab" data-panel="shopping"><span class="ico"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span>Compras</button>
 </div>
 
 <!-- HOJE -->
@@ -1167,6 +1231,47 @@
   </div>
 </div>
 
+<!-- LISTA DE COMPRAS -->
+<div class="panel" id="shopping">
+
+  <!-- Cabeçalho com ações -->
+  <div class="card" style="padding-bottom:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div>
+        <h2 style="margin-bottom:2px;">🛒 Lista de compras</h2>
+        <p class="muted" style="margin:0;">Gerada automaticamente pelo seu plano alimentar.</p>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="ghost" onclick="regenerateShoppingList()" style="min-width:120px;">↻ Atualizar</button>
+        <button class="ghost" onclick="clearCheckedItems()" style="min-width:130px;">🗑 Remover marcados</button>
+        <button class="ghost" onclick="copyShoppingList()" style="min-width:110px;">📋 Copiar</button>
+      </div>
+    </div>
+
+    <!-- Filtro por refeição -->
+    <div style="margin-top:14px;">
+      <label style="margin-bottom:6px;">Filtrar por refeição</label>
+      <div id="shoppingMealFilter" class="chips-line"></div>
+    </div>
+
+    <!-- Campo para item extra -->
+    <div class="form-row" style="margin-top:14px;">
+      <input type="text" id="shoppingNewItem" placeholder="Adicionar item manualmente..." style="flex:1;">
+      <input type="text" id="shoppingNewQty" placeholder="Qtd (ex: 500g)" style="max-width:120px;">
+      <button onclick="addShoppingItem()" style="flex:0; min-width:80px;">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Lista agrupada por categoria -->
+  <div id="shoppingListContent"></div>
+
+  <!-- Resumo -->
+  <div class="card" id="shoppingStats" style="display:none;">
+    <div id="shoppingStatsContent"></div>
+  </div>
+
+</div>
+
 <!-- CONFIGURAÇÕES (via Minha conta) -->
 <div class="panel" id="settings">
   <button type="button" class="settings-back" onclick="closeSettings()">← Voltar</button>
@@ -1328,6 +1433,7 @@
     <button data-panel="dashboard"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V5M10 19V9M16 19v-6M22 19V3"/></svg></span><span>Dashboard</span></button>
     <button data-panel="insights"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><span>Insights</span><span class="alert-badge" id="alertBadgeBottom" style="display:none;"></span></button>
     <button data-panel="history"><span class="ico"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span><span>Histórico</span></button>
+    <button data-panel="shopping"><span class="ico"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg></span><span>Compras</span></button>
   </div>
 </nav>
 </div>
@@ -1951,6 +2057,11 @@ function switchPanel(panelId) {
   }
   document.getElementById(panelId).classList.add('active');
   window.scrollTo({top: 0, behavior: 'smooth'});
+  if (panelId === 'shopping') {
+    const data = loadShoppingList();
+    if (!data.items.length) regenerateShoppingList();
+    else renderShoppingList();
+  }
   if (panelId === 'dashboard') renderDashboard();
   if (panelId === 'history') renderHistory();
   if (panelId === 'settings') renderSettings();
@@ -3981,6 +4092,310 @@ window.addEventListener('resize', () => {
   // Verificar redirect de reset de senha
   if (supaConfigured()) checkPasswordResetRedirect();
 })();
+
+// ================= LISTA DE COMPRAS =================
+
+const SHOP_KEY = 'fitEraShoppingList';
+const CATEGORY_MAP = {
+  // Proteínas
+  'frango': '🥩 Proteínas', 'carne': '🥩 Proteínas', 'peixe': '🥩 Proteínas',
+  'atum': '🥩 Proteínas', 'ovo': '🥚 Ovos e Laticínios', 'ovos': '🥚 Ovos e Laticínios',
+  'salmão': '🥩 Proteínas', 'tilápia': '🥩 Proteínas', 'camarão': '🥩 Proteínas',
+  'carne moída': '🥩 Proteínas', 'patinho': '🥩 Proteínas', 'alcatra': '🥩 Proteínas',
+  // Laticínios
+  'leite': '🥚 Ovos e Laticínios', 'queijo': '🥚 Ovos e Laticínios',
+  'iogurte': '🥚 Ovos e Laticínios', 'whey': '🥚 Ovos e Laticínios',
+  'requeijão': '🥚 Ovos e Laticínios', 'manteiga': '🥚 Ovos e Laticínios',
+  // Grãos e Carboidratos
+  'arroz': '🌾 Grãos e Carboidratos', 'feijão': '🌾 Grãos e Carboidratos',
+  'macarrão': '🌾 Grãos e Carboidratos', 'pão': '🌾 Grãos e Carboidratos',
+  'aveia': '🌾 Grãos e Carboidratos', 'granola': '🌾 Grãos e Carboidratos',
+  'tapioca': '🌾 Grãos e Carboidratos', 'lentilha': '🌾 Grãos e Carboidratos',
+  'quinoa': '🌾 Grãos e Carboidratos', 'grão': '🌾 Grãos e Carboidratos',
+  // Legumes e Verduras
+  'batata': '🥦 Legumes e Verduras', 'brócolis': '🥦 Legumes e Verduras',
+  'cenoura': '🥦 Legumes e Verduras', 'tomate': '🥦 Legumes e Verduras',
+  'alface': '🥦 Legumes e Verduras', 'chuchu': '🥦 Legumes e Verduras',
+  'abobrinha': '🥦 Legumes e Verduras', 'pepino': '🥦 Legumes e Verduras',
+  'espinafre': '🥦 Legumes e Verduras', 'couve': '🥦 Legumes e Verduras',
+  'salada': '🥦 Legumes e Verduras', 'rúcula': '🥦 Legumes e Verduras',
+  'legumes': '🥦 Legumes e Verduras', 'verduras': '🥦 Legumes e Verduras',
+  'cebola': '🥦 Legumes e Verduras', 'alho': '🥦 Legumes e Verduras',
+  // Frutas
+  'maçã': '🍎 Frutas', 'banana': '🍎 Frutas', 'laranja': '🍎 Frutas',
+  'mamão': '🍎 Frutas', 'melancia': '🍎 Frutas', 'morango': '🍎 Frutas',
+  'uva': '🍎 Frutas', 'abacate': '🍎 Frutas', 'fruta': '🍎 Frutas',
+  'limão': '🍎 Frutas', 'manga': '🍎 Frutas', 'abacaxi': '🍎 Frutas',
+  // Gorduras e Oleaginosas
+  'azeite': '🫒 Gorduras e Oleaginosas', 'castanha': '🫒 Gorduras e Oleaginosas',
+  'amendoim': '🫒 Gorduras e Oleaginosas', 'amêndoa': '🫒 Gorduras e Oleaginosas',
+  'pasta de amendoim': '🫒 Gorduras e Oleaginosas', 'óleo': '🫒 Gorduras e Oleaginosas',
+  'nozes': '🫒 Gorduras e Oleaginosas', 'castanhas': '🫒 Gorduras e Oleaginosas',
+  // Bebidas
+  'café': '☕ Bebidas', 'chá': '☕ Bebidas', 'suco': '☕ Bebidas',
+  'água': '☕ Bebidas', 'leite vegetal': '☕ Bebidas',
+  // Temperos e Condimentos
+  'sal': '🧂 Temperos', 'pimenta': '🧂 Temperos', 'orégano': '🧂 Temperos',
+  'azeite de oliva': '🧂 Temperos', 'vinagre': '🧂 Temperos',
+};
+
+function getCategoryForItem(name) {
+  const lower = name.toLowerCase();
+  for (const [keyword, cat] of Object.entries(CATEGORY_MAP)) {
+    if (lower.includes(keyword)) return cat;
+  }
+  return '📦 Outros';
+}
+
+function loadShoppingList() {
+  return JSON.parse(localStorage.getItem(SHOP_KEY)) || { items: [], filters: [], lastGenerated: null };
+}
+
+function saveShoppingList(data) {
+  localStorage.setItem(SHOP_KEY, JSON.stringify(data));
+}
+
+function generateShoppingItems() {
+  // Extrai todos os alimentos do plano alimentar
+  const items = [];
+  const seen = new Set();
+
+  (db.dietPlan || []).forEach(meal => {
+    (meal.options || []).forEach(opt => {
+      (opt.foods || []).forEach(food => {
+        const key = food.name.toLowerCase().trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          items.push({
+            id: uid(),
+            name: food.name,
+            amount: food.amount || '',
+            meal: meal.name,
+            mealEmoji: meal.emoji || '🍽️',
+            category: getCategoryForItem(food.name),
+            checked: false,
+            manual: false
+          });
+        }
+      });
+    });
+  });
+
+  return items;
+}
+
+function regenerateShoppingList() {
+  const current = loadShoppingList();
+  const newItems = generateShoppingItems();
+
+  // Preservar itens manuais e estados de checked dos itens existentes
+  const manualItems = current.items.filter(i => i.manual);
+  const checkedIds = new Set(current.items.filter(i => i.checked && !i.manual).map(i => i.name.toLowerCase()));
+
+  // Mesclar: novos itens do plano + manuais
+  newItems.forEach(i => {
+    if (checkedIds.has(i.name.toLowerCase())) i.checked = true;
+  });
+
+  const merged = [...newItems, ...manualItems];
+  const data = { items: merged, filters: current.filters || [], lastGenerated: new Date().toISOString() };
+  saveShoppingList(data);
+  renderShoppingList();
+  showToast('Lista atualizada com os alimentos do plano alimentar ✓');
+}
+
+function renderShoppingList() {
+  const data = loadShoppingList();
+  const container = document.getElementById('shoppingListContent');
+  const statsEl = document.getElementById('shoppingStats');
+  if (!container) return;
+
+  // Filtros de refeição
+  renderShoppingFilters(data);
+
+  // Filtrar itens por refeição selecionada
+  let items = data.items;
+  if (data.filters && data.filters.length > 0) {
+    items = items.filter(i => i.manual || data.filters.includes(i.meal));
+  }
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="card shop-empty">
+        <div class="ico-big">🛒</div>
+        <p style="font-weight:600; margin-bottom:6px;">Lista vazia</p>
+        <p style="font-size:0.875rem;">Adicione refeições no plano alimentar e clique em "Atualizar".</p>
+        <button onclick="regenerateShoppingList()" style="margin-top:14px;">Gerar lista</button>
+      </div>`;
+    statsEl.style.display = 'none';
+    return;
+  }
+
+  // Agrupar por categoria
+  const groups = {};
+  items.forEach(item => {
+    const cat = item.category || '📦 Outros';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(item);
+  });
+
+  // Ordenar categorias
+  const catOrder = ['🥩 Proteínas','🥚 Ovos e Laticínios','🌾 Grãos e Carboidratos',
+    '🥦 Legumes e Verduras','🍎 Frutas','🫒 Gorduras e Oleaginosas','☕ Bebidas','🧂 Temperos','📦 Outros'];
+  const sortedCats = Object.keys(groups).sort((a, b) => {
+    const ai = catOrder.indexOf(a), bi = catOrder.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  let html = '';
+  sortedCats.forEach(cat => {
+    const catItems = groups[cat];
+    const doneCount = catItems.filter(i => i.checked).length;
+    html += `
+      <div class="shop-category" id="shopCat-${btoa(cat).replace(/=/g,'')}">
+        <div class="shop-category-header" onclick="toggleShopCategory(this)">
+          <div class="shop-category-title">
+            ${cat}
+            <span class="shop-category-count">${doneCount}/${catItems.length}</span>
+          </div>
+          <span class="shop-category-toggle">▼</span>
+        </div>
+        <div class="shop-items">`;
+    catItems.forEach(item => {
+      html += `
+          <div class="shop-item ${item.checked ? 'checked' : ''}" id="shopItem-${item.id}">
+            <div class="shop-check ${item.checked ? 'done' : ''}" onclick="toggleShopItem('${item.id}')">
+              ${item.checked ? '✓' : ''}
+            </div>
+            <div class="shop-item-info">
+              <div class="shop-item-name">${item.name}</div>
+              ${item.meal ? `<div class="shop-item-meta">${item.mealEmoji} ${item.meal}${item.manual ? ' · Adicionado manualmente' : ''}</div>` : ''}
+            </div>
+            ${item.amount ? `<div class="shop-item-qty">${item.amount}</div>` : ''}
+            <button class="shop-item-del" onclick="deleteShopItem('${item.id}')" title="Remover">✕</button>
+          </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+
+  // Stats
+  const total = items.length;
+  const done = items.filter(i => i.checked).length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  statsEl.style.display = 'block';
+  document.getElementById('shoppingStatsContent').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-weight:600;">${done} de ${total} itens</span>
+      <span style="font-size:0.875rem; color:var(--text-muted);">${pct}% completo</span>
+    </div>
+    <div class="shop-progress"><div class="shop-progress-bar" style="width:${pct}%"></div></div>
+    ${data.lastGenerated ? `<p style="font-size:0.75rem; color:var(--text-muted); margin-top:8px;">Gerada em ${new Date(data.lastGenerated).toLocaleString('pt-BR')}</p>` : ''}
+  `;
+}
+
+function renderShoppingFilters(data) {
+  const el = document.getElementById('shoppingMealFilter');
+  if (!el) return;
+  const meals = [...new Set((data.items || []).filter(i => !i.manual && i.meal).map(i => i.meal))];
+  el.innerHTML = meals.map(m => {
+    const active = !data.filters || data.filters.length === 0 || data.filters.includes(m);
+    return `<span class="chip ${active ? 'active' : ''}" onclick="toggleShopFilter('${m}')">${m}</span>`;
+  }).join('') + `<span class="chip ${!data.filters || data.filters.length === 0 ? 'active' : ''}" onclick="clearShopFilters()">Todas</span>`;
+}
+
+function toggleShopFilter(meal) {
+  const data = loadShoppingList();
+  if (!data.filters) data.filters = [];
+  const idx = data.filters.indexOf(meal);
+  if (idx >= 0) data.filters.splice(idx, 1);
+  else data.filters.push(meal);
+  saveShoppingList(data);
+  renderShoppingList();
+}
+
+function clearShopFilters() {
+  const data = loadShoppingList();
+  data.filters = [];
+  saveShoppingList(data);
+  renderShoppingList();
+}
+
+function toggleShopCategory(header) {
+  header.closest('.shop-category').classList.toggle('collapsed');
+}
+
+function toggleShopItem(id) {
+  const data = loadShoppingList();
+  const item = data.items.find(i => i.id === id);
+  if (!item) return;
+  item.checked = !item.checked;
+  saveShoppingList(data);
+  renderShoppingList();
+}
+
+function deleteShopItem(id) {
+  const data = loadShoppingList();
+  data.items = data.items.filter(i => i.id !== id);
+  saveShoppingList(data);
+  renderShoppingList();
+}
+
+function clearCheckedItems() {
+  const data = loadShoppingList();
+  const count = data.items.filter(i => i.checked).length;
+  if (!count) { showToast('Nenhum item marcado'); return; }
+  if (!confirm(`Remover ${count} item(s) já marcado(s)?`)) return;
+  data.items = data.items.filter(i => !i.checked);
+  saveShoppingList(data);
+  renderShoppingList();
+  showToast(`${count} item(s) removido(s) ✓`);
+}
+
+function addShoppingItem() {
+  const nameEl = document.getElementById('shoppingNewItem');
+  const qtyEl = document.getElementById('shoppingNewQty');
+  const name = nameEl.value.trim();
+  if (!name) { showToast('Digite o nome do item'); return; }
+  const data = loadShoppingList();
+  data.items.push({
+    id: uid(), name, amount: qtyEl.value.trim(),
+    meal: '', mealEmoji: '✏️', category: getCategoryForItem(name),
+    checked: false, manual: true
+  });
+  saveShoppingList(data);
+  nameEl.value = ''; qtyEl.value = '';
+  renderShoppingList();
+  showToast('Item adicionado ✓');
+}
+
+function copyShoppingList() {
+  const data = loadShoppingList();
+  const unchecked = data.items.filter(i => !i.checked);
+  if (!unchecked.length) { showToast('Nenhum item pendente para copiar'); return; }
+
+  // Agrupar por categoria para copiar
+  const groups = {};
+  unchecked.forEach(i => {
+    const cat = i.category || '📦 Outros';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(i);
+  });
+
+  let text = '🛒 Lista de compras — My Fit Era\n\n';
+  Object.entries(groups).forEach(([cat, items]) => {
+    text += `${cat}\n`;
+    items.forEach(i => { text += `  • ${i.name}${i.amount ? ' — ' + i.amount : ''}\n`; });
+    text += '\n';
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Lista copiada para a área de transferência ✓');
+  }).catch(() => {
+    showToast('Não foi possível copiar automaticamente');
+  });
+}
 
 // ================= SISTEMA DE NOTIFICAÇÕES COM BONEQUINHA =================
 
