@@ -464,10 +464,10 @@ function saveDay() {
 }
 function showToast(msg) {
   const t = document.createElement('div');
+  t.className = 'toast-msg';
   t.textContent = msg;
-  t.style.cssText = `position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:#1F2937; color:white; padding:10px 18px; border-radius:10px; z-index:200; font-weight:500; font-size:0.875rem; box-shadow:0 4px 12px rgba(0,0,0,0.12);`;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 1800);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 1800);
 }
 function clearDay() {
   const date = document.getElementById('entryDate').value;
