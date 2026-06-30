@@ -293,10 +293,25 @@ document.querySelectorAll('.tab, .bottom-nav button').forEach(t => {
 /* ============================================================
    ENTRADA DIÁRIA
    ============================================================ */
-document.getElementById('entryDate').value = today();
-document.getElementById('entryDate').addEventListener('change', () => { loadEntries(); });
-document.getElementById('dietDate').value  = today();
-document.getElementById('dietDate').addEventListener('change', loadDiet);
+function syncDateInputs(date = today()) {
+  const normalized = date || today();
+  document.getElementById('entryDate').value = normalized;
+  document.getElementById('dietDate').value = normalized;
+}
+
+syncDateInputs(today());
+document.getElementById('entryDate').addEventListener('change', () => {
+  const date = document.getElementById('entryDate').value;
+  syncDateInputs(date);
+  loadEntries();
+  loadDiet();
+});
+document.getElementById('dietDate').addEventListener('change', () => {
+  const date = document.getElementById('dietDate').value;
+  syncDateInputs(date);
+  loadEntries();
+  loadDiet();
+});
 
 function describeFreq(h) {
   if (h.freq === 'daily')    return 'Diário';
@@ -314,6 +329,44 @@ function weeklyCount(habitId, date) {
   let c = 0;
   weekDates(weekStart(date)).forEach(d => { if (db.records[d]?.[habitId]?.status === 'done') c++; });
   return c;
+}
+
+function renderTodayQuickDiet() {
+  const date = document.getElementById('entryDate').value;
+  const container = document.getElementById('todayQuickDiet');
+  if (!container) return;
+
+  if (!db.dietPlan.length) {
+    container.innerHTML = '<div class="today-empty">Cadastre o plano alimentar em Configurações para registrar refeições aqui.</div>';
+    return;
+  }
+
+  const rec = db.records[date] || {};
+  const dietRec = rec.diet || { meals: {}, overallNote: '' };
+  const sorted = [...db.dietPlan].sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+
+  container.innerHTML = sorted.map(meal => {
+    const r = dietRec.meals[meal.id] || {};
+    const selectedOpt = getMealRecordOption(meal, r);
+    const optionLabel = selectedOpt && getMealOptions(meal).length > 1 ? ` · ${selectedOpt.name}` : '';
+    const stateClass = r.followed === 'full' ? 'full' : r.followed === 'partial' ? 'partial' : r.followed === 'no' ? 'no' : r.followed === 'skip' ? 'skip' : '';
+    return `
+      <div class="today-quick-meal ${stateClass}">
+        <div class="today-quick-meal__main">
+          <div class="today-quick-emoji">${meal.emoji || '🍽️'}</div>
+          <div>
+            <div class="today-quick-meal__name">${meal.name}${optionLabel}</div>
+            <div class="today-quick-meal__meta">${meal.time || 'Sem horário'}</div>
+          </div>
+        </div>
+        <div class="today-quick-actions" onclick="event.stopPropagation()">
+          <button type="button" class="toggle-btn toggle-done ${r.followed==='full' ? 'active-done' : ''}" onclick="setMealStatus('${meal.id}','full')">100%</button>
+          <button type="button" class="toggle-btn toggle-partial ${r.followed==='partial' ? 'active-partial' : ''}" onclick="setMealStatus('${meal.id}','partial')">Parcial</button>
+          <button type="button" class="toggle-btn toggle-fail ${r.followed==='no' ? 'active-fail' : ''}" onclick="setMealStatus('${meal.id}','no')">Não fiz</button>
+          <button type="button" class="toggle-btn toggle-skip ${r.followed==='skip' ? 'active-skip' : ''}" onclick="setMealStatus('${meal.id}','skip')">Pular</button>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function loadEntries() {
@@ -392,6 +445,7 @@ function loadEntries() {
   list.innerHTML = html;
   updateAlertBadge();
   loadMoodEnergy();
+  renderTodayQuickDiet();
 }
 
 /* ============================================================
@@ -447,6 +501,7 @@ function setStatus(hid, st) {
 }
 function saveDay() {
   const date = document.getElementById('entryDate').value;
+  syncDateInputs(date);
   if (!db.records[date]) db.records[date] = {};
   db.habits.forEach(h => {
     const r = db.records[date][h.id] || {};
@@ -460,7 +515,8 @@ function saveDay() {
     }
     if (r.status) db.records[date][h.id] = r;
   });
-  save(); showToast('Salvo'); updateAlertBadge();
+  saveDiet(true);
+  save(); showToast('Registro salvo'); updateAlertBadge();
 }
 function showToast(msg) {
   const t = document.createElement('div');
@@ -527,7 +583,8 @@ function loadDiet() {
 }
 
 function setMealStatus(mealId, status) {
-  const date = document.getElementById('dietDate').value;
+  const date = document.getElementById('dietDate').value || document.getElementById('entryDate').value || today();
+  syncDateInputs(date);
   if (!db.records[date]) db.records[date] = {};
   if (!db.records[date].diet) db.records[date].diet = { meals: {}, overallNote: '' };
   if (!db.records[date].diet.meals[mealId]) db.records[date].diet.meals[mealId] = {};
@@ -576,13 +633,14 @@ function toggleFood(mealId, foodIdx) {
   }
   loadDiet();
 }
-function saveDiet() {
-  const date = document.getElementById('dietDate').value;
+function saveDiet(silent = false) {
+  const date = document.getElementById('dietDate').value || document.getElementById('entryDate').value || today();
+  syncDateInputs(date);
   if (!db.records[date]) db.records[date] = {};
   if (!db.records[date].diet) db.records[date].diet = { meals: {}, overallNote: '' };
   db.dietPlan.forEach(meal => { const noteEl = document.getElementById('mealNote-'+meal.id); if (noteEl) { if (!db.records[date].diet.meals[meal.id]) db.records[date].diet.meals[meal.id] = {}; db.records[date].diet.meals[meal.id].note = noteEl.value; } });
   db.records[date].diet.overallNote = document.getElementById('dietOverallNote').value;
-  save(); showToast('Dieta salva');
+  save(); if (!silent) showToast('Dieta salva');
 }
 function clearDiet() {
   const date = document.getElementById('dietDate').value;
@@ -1095,6 +1153,21 @@ function defineAchievements() {
   ];
 }
 
+function updateHeaderAchievements() {
+  const el = document.getElementById('headerAchievements');
+  const iconEl = document.getElementById('headerAchievementIcon');
+  const textEl = document.getElementById('headerAchievementText');
+  if (!el || !iconEl || !textEl) return;
+
+  const all = defineAchievements();
+  const unlocked = all.filter(a => a.unlocked);
+  const firstUnlocked = unlocked[0];
+  iconEl.textContent = firstUnlocked ? firstUnlocked.icon : '🏅';
+  textEl.textContent = `${unlocked.length}/${all.length}`;
+  el.title = unlocked.length ? `${unlocked.length} conquistas desbloqueadas` : 'Ver conquistas';
+  el.classList.toggle('has-achievements', unlocked.length > 0);
+}
+
 function renderAchievements() {
   if (!db.unlockedAchievements) db.unlockedAchievements = {};
   const all  = defineAchievements();
@@ -1142,6 +1215,8 @@ function renderAchievements() {
   nextEl.innerHTML = locked.length
     ? `<div class="achievement-grid">${locked.slice(0, 6).map(a => renderCard(a, true)).join('')}</div>`
     : '<div class="empty" style="color:var(--success);">🎉 Todas as conquistas desbloqueadas!</div>';
+
+  updateHeaderAchievements();
 }
 
 /* ============================================================
@@ -1568,6 +1643,7 @@ window.addEventListener('resize', () => {
     loadEntries();
     updateAlertBadge();
     initBodyForm();
+    updateHeaderAchievements();
     renderAchievements();
   }
 })();

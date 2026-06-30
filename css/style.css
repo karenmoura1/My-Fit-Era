@@ -300,6 +300,56 @@ label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.8rem;
 .toggle-btn.toggle-skip.active-skip { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); font-weight: 600; }
 
 /* ============================================================
+   REGISTRO RÁPIDO DO DIA
+   ============================================================ */
+.today-merge-card {
+  margin-top: 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface-2);
+}
+.today-merge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.today-merge-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.today-merge-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.today-quick-meal {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  margin-bottom: 8px;
+}
+.today-quick-meal.full { border-color: var(--cat-success-border); background: var(--success-soft); }
+.today-quick-meal.partial { border-color: var(--cat-partial-border); background: var(--warning-soft); }
+.today-quick-meal.no { border-color: var(--cat-danger-border); background: var(--danger-soft); }
+.today-quick-meal.skip { background: var(--surface-2); }
+.today-quick-meal__main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.today-quick-emoji { font-size: 1.15rem; }
+.today-quick-meal__name { font-weight: 600; color: var(--text); font-size: 0.92rem; }
+.today-quick-meal__meta { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; }
+.today-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.today-quick-actions .toggle-btn { min-width: 60px; padding: 7px 8px; font-size: 0.75rem; min-height: 32px; }
+.today-empty { color: var(--text-muted); font-size: 0.9rem; padding: 6px 0; }
+
+/* ============================================================
    DIETA
    ============================================================ */
 .meal-card {
@@ -594,6 +644,13 @@ label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.8rem;
   background: linear-gradient(135deg, var(--accent), var(--purple));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.header-achievements {
+  display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--warning-soft), #FFF7ED); border: 1.5px solid #FDE68A; color: var(--text); border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 0.8rem; cursor: pointer; min-height: 40px; box-shadow: none; transition: all 0.2s;
+}
+.header-achievements:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.header-achievement-icon { font-size: 1rem; line-height: 1; }
+.header-achievement-text { color: var(--text); }
 .account-menu-wrap { position: relative; }
 .account-trigger { display: flex; align-items: center; gap: 8px; background: var(--surface-2); color: var(--text); border: 1.5px solid var(--border); border-radius: 999px; padding: 7px 14px 7px 10px; font-weight: 600; font-size: 0.8125rem; cursor: pointer; min-height: 40px; box-shadow: none; transition: all 0.2s; }
 .account-trigger:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); transform: none; }
